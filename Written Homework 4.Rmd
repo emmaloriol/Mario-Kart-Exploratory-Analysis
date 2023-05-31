@@ -32,7 +32,6 @@ mariokart <- read.csv(file_path)
 # Preview data
 glimpse(mariokart)
 
-unique(mariokart$kart)
 ```
 Check for NA values
 ```{r}
@@ -42,6 +41,8 @@ any(na_values) #There are no NA values
 ```
 Add column indicating bike or car
 ```{r}
+unique(mariokart$kart) #Get kart names 
+
 mariokart$bikeorcar <- ifelse(mariokart$kart == "Landship" | mariokart$kart == "Pipe Frame" | mariokart$kart == "Tanooki Kart" | mariokart$kart == "B Dasher" |
                                 mariokart$kart == "Sports Coupe" | mariokart$kart == "Koopa Clown" | mariokart$kart == "Mach 8" | mariokart$kart == "Standard ATV"
                               | mariokart$kart == "Streetle" | mariokart$kart == "Mercedes 300 SL Roadster" | mariokart$kart == "Biddybuggy" | mariokart$kart == "Mercedes Silver Arrow"
@@ -49,8 +50,8 @@ mariokart$bikeorcar <- ifelse(mariokart$kart == "Landship" | mariokart$kart == "
                               | mariokart$kart == "Teddy Buggy" | mariokart$kart == "Standard Kart" | mariokart$kart == "Sneeker" | mariokart$kart == "Badwagon"
                               | mariokart$kart == "Mercedes GLA" | mariokart$kart == "P-Wing" | mariokart$kart == "Circuit Special" | mariokart$kart == "Blue Falcon"
                               | mariokart$kart == "Gold Standard", "Car", "Bike")
-glimpse(mariokart)
-mariokart
+glimpse(mariokart) #confirm names uploaded
+
 ```
 ##Unsupervised learning <br>
 
@@ -58,15 +59,11 @@ mariokart
 
 Remove factor variables
 ```{r}
-# Concatenate character, kart, tire, and glider columns into a label
-labeleddata <- mariokart %>%
-  unite(label, characters, kart, tires, glider, sep = ", ")
-
 #Remove factor variables
-data <- select(labeleddata, subset = -c("label"))
+data <- select(labeleddata, subset = -c("label", "bikeorcar"))
 ```
 
-Perform dimension reduction (PCA or SVD?)
+Perform dimension reduction 
 ```{r}
 pr.out <- prcomp(data, scale=TRUE)
 ```
@@ -88,7 +85,6 @@ The first component seems to describe how fast the cart is, and the second compo
 
 Plot a random sample of 100 data points along the first two principle components. 
 ```{r}
-
 # Create the toplot data frame with the random sample
 toplot <- data.frame(pr.out$x)
 toplot$label <- labeleddata$label
@@ -109,28 +105,155 @@ fig3
 ```
 No apparent groupings of bikes or cars. <br>
 
-Matrix completion?
-I believe not necessary due to no NA values
 
-#K-means clustering on pca data
+#K-means clustering on pca data <br>
 
 K-means clustering with n = 2 groups and nstart = 20
+
+Try different numbers of groups
+Within group sum of squares
+N start should be big enough but don't need to try multiple values
 
 ```{r chunk29}
 km.out <- kmeans(pr.out$x, 2, nstart = 20)
 ```
 
-```{r chunk30}
-km.out$cluster
-```
-
-The $K$-means clustering perfectly separated the observations into two clusters even though we did not supply any group information to `kmeans()`. We can plot the data, with each observation colored according to its cluster assignment.
+Plot clusters
 
 ```{r chunk31}
 plot(pr.out$x, col = (km.out$cluster + 1),
     main = "K-Means Clustering Results with K = 2",
     xlab = "", ylab = "", pch = 20, cex = 2)
 ```
-Do I try multiple nstarts and multiple K-means groups? Do I test accuracy?
+```{r}
+km.out$tot.withinss
+```
+Total.withinss for two groups is 707316.7. <br>
 
-Hierarchical clustering?
+Try K-means with three groups <br>
+
+K-means clustering with n = 3 groups and nstart = 20
+
+```{r chunk29}
+km.out <- kmeans(pr.out$x, 3, nstart = 20)
+```
+
+Plot clusters
+
+```{r chunk31}
+plot(pr.out$x, col = (km.out$cluster + 1),
+    main = "K-Means Clustering Results with K = 2",
+    xlab = "", ylab = "", pch = 20, cex = 2)
+```
+
+```{r}
+km.out$tot.withinss
+```
+With three groups, the total sum of squares is 553779.9 <br>
+
+K-means clustering with n = 4 groups and nstart = 20
+
+```{r chunk29}
+km.out <- kmeans(pr.out$x, 4, nstart = 20)
+```
+
+Plot clusters
+
+```{r chunk31}
+plot(pr.out$x, col = (km.out$cluster + 1),
+    main = "K-Means Clustering Results with K = 2",
+    xlab = "PC1", ylab = "PC2", pch = 20, cex = 2)
+```
+
+
+```{r}
+km.out$tot.withinss
+```
+Total within group sum of squares is 469758.5. <br>
+
+Retry plot with smaller sample size and bikes/cars labeled <br>
+```{r}
+# Create the toplot data frame with the random sample
+glimpse(pr.out$x)
+toplot <- data.frame(pr.out$x)
+toplot$label <- labeleddata$label
+isCar <- mariokart$bikeorcar
+toplot$car <- isCar
+toplot$cluster <- km.out$cluster
+# Take a random sample of 100 data points from pr.out
+set.seed(1200)
+sample_size <- 100
+toplot <- toplot[sample(nrow(toplot), sample_size), ]
+
+#Plot sample of 100 data points
+fig3 <- plot_ly(data=toplot)
+fig3 <- fig3 %>% add_markers(x=~PC1, y = ~PC2, color=~cluster, text = ~label, hoverinfo = 'text', type='scatter', mode='markers')
+fig3 <- fig3 %>% layout(legend=list(title=list(text='Car')))
+
+fig3
+```
+Print sample point from each cluster <br>
+
+Cluster 1 <br>
+```{r}
+cluster1 = labeleddata %>% filter (label == "Toadette, Wendy, Isabelle, Master Cycle, Crimson Slim, Plane Glider")
+cluster1
+```
+Cluster1 is low on PC1 and mid range on PC2. The sample point showed high handling and overall total and mid-range speed and acceleration, and turbo. It is a bike.  
+
+Cluster 2 <br>
+```{r}
+cluster2 = labeleddata %>% filter (label == "Metal/Gold Mario, Pink Gold Peach, Mercedes Silver Arrow, Standard, Wario Wing")
+cluster2
+```
+The sample point from cluster two is high in PC1 and mid range in PC2. It has high weight, speed, and overall total. It is a car. 
+
+Cluster 3 <br>
+```{r}
+cluster3= labeleddata %>% filter (label == "Baby Rosalina, Lemmy Koopa, City Tripper, Roller, Hylian Kite")
+cluster3
+```
+Cluster 3 is high in PC2 and mid range in PC1. It has high acceleration, handling, turbo, and low speed. It is a bike. <br>
+
+Cluster 4 <br>
+```{r}
+cluster4= labeleddata %>% filter (label == "Metal/Gold Mario, Pink Gold Peach, Badwagon, Crimson Slim, Parachute")
+cluster4
+```
+Clutser 4 is low on PC2 and mid range on PC1. This sample point had low speed, traction, handling, and turbo. It was very high on speed and weight. <br>
+
+#Hierarchical clustering
+```{r}
+# Take a random sample of 100 data points from pr.out
+set.seed(1201)
+sample_size <- 1000
+hc.data <- data[sample(nrow(data), sample_size), ]
+```
+
+Perform complete, average, and sinkle linkage hierarchical clustering
+```{r}
+hc.complete <- hclust(dist(hc.data), method = "complete")
+hc.average <- hclust(dist(hc.data), method = "average")
+hc.single <- hclust(dist(hc.data), method = "single")
+```
+
+Plot dendrograms
+```{r chunk36}
+par(mfrow = c(1, 3))
+plot(hc.complete, main = "Complete Linkage",
+    xlab = "", sub = "", cex = .9)
+plot(hc.average, main = "Average Linkage",
+    xlab = "", sub = "", cex = .9)
+plot(hc.single, main = "Single Linkage",
+    xlab = "", sub = "", cex = .9)
+```
+```{r chunk37}
+hc.complete.categories <- cutree(hc.complete, 4)
+cutree(hc.average, 4)
+cutree(hc.single, 4)
+
+```
+
+
+
+
