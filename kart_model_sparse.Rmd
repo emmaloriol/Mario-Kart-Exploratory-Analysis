@@ -1,0 +1,284 @@
+---
+title: "second_try"
+output: html_document
+date: "2023-06-04"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(eval = FALSE)
+```
+
+```{r}
+#decision tree stuff
+library(tidyverse)
+library(gbm)
+library(tidyverse)
+library(tree)
+library(randomForest)
+
+#NN stuff
+library(ISLR2)
+library(keras)
+library(abind)
+library(tictoc)
+library(tensorflow)
+library(reshape2)
+```
+
+#### Load in Data and Clean
+
+```{r}
+kart <- read.csv('/Users/achurch/Desktop/Class Files/statistical ML 2/Written HW 4/KartKross.csv')
+
+kart <- kart %>% select(-c('total'))
+
+kart$characters <- as.factor(kart$characters)
+kart$kart <- as.factor(kart$kart)
+kart$tires <- as.factor(kart$tires)
+kart$glider <- as.factor(kart$glider)
+```
+
+```{r}
+#sample the data
+set.seed(2)
+samp_index <- sample(1:nrow(kart), (nrow(kart) * 0.10))
+kart_samp <- kart[samp_index,]
+
+#define training set
+set.seed(3)
+train <- sample(1:nrow(kart_samp), nrow(kart_samp) * 0.8)
+```
+
+#### Function to encode categorical variables
+
+```{r}
+one_hot <- function(column) {
+
+  #initiate matrix to store encodings
+  full_enc <- matrix(, nrow = length(column), ncol = length(unique(column)))
+  
+  #iterate through the number of unique categories in the column
+  for (j in 1:length(unique(column))) {
+
+      
+    #initate a new vector holding the encoding
+    enc <- numeric(length(column))
+    
+    #iterate over each value in the column
+    for (i in 1:length(column)){
+    
+      #if the value matches the encoding, add it to the encoding vector
+      enc[i] <- ifelse(unique(column)[j] == column[i], 1, 0)
+    }
+    
+    #add encoding to matrix
+    full_enc[,j] <- enc
+  }
+  
+  #return encoded columns
+  full_enc
+}
+```
+
+```{r}
+#one hot the factors
+kart_hot <- one_hot(kart_samp$kart)
+tires_hot <- one_hot(kart_samp$tires)
+glider_hot <- one_hot(kart_samp$glider)
+
+all_enc <- cbind(kart_hot, tires_hot, glider_hot)
+```
+
+```{r}
+#encode the output variable
+characters_enc <- ifelse(kart_samp$characters == "Koopa Troopa, Lakitu, Bowser Jr.", 0,
+                  ifelse(kart_samp$characters == "Link, King Boo, Rosalina", 1,
+                  ifelse(kart_samp$characters == "Toadette, Wendy, Isabelle", 2,
+                  ifelse(kart_samp$characters == "Baby Rosalina, Lemmy Koopa", 3,
+                  ifelse(kart_samp$characters == "Cat Peach, Inkling Girl, Villager Girl", 4,
+                  ifelse(kart_samp$characters == "Baby Peach, Baby Daisy", 5,
+                  ifelse(kart_samp$characters == "Mario, Ludwig", 6,
+                  ifelse(kart_samp$characters == "Peach, Daisy, Yoshi", 7,
+                  ifelse(kart_samp$characters == "Tanooki Mario, Inkling Boy, Villager Boy", 8,
+                  ifelse(kart_samp$characters == "Bowser, Morton", 9,
+                  ifelse(kart_samp$characters == "Luigi, Iggy", 10,
+                  ifelse(kart_samp$characters == "Metal/Gold Mario, Pink Gold Peach", 11,
+                  ifelse(kart_samp$characters == "Donkey Kong, Roy, Waluigi", 12,
+                  ifelse(kart_samp$characters == "Toad, ShyGuy, Larry", 13,
+                  ifelse(kart_samp$characters == "Wario, Dry Bowser", 14, 15)))))))))))))))
+
+y <- characters_enc
+
+```
+
+```{r}
+#bind one hot encoded variables with numeric
+x <- cbind(all_enc, kart_samp$speed, kart_samp$acceleration, kart_samp$weight, kart_samp$handling, kart_samp$traction, kart_samp$turbo)
+
+dim(x)
+```
+
+#### 1 Layer, 40 nodes
+
+```{r}
+tic()
+set.seed(20)
+set_random_seed(20)
+
+model <- keras_model_sequential() %>%
+   layer_flatten(input_shape = c(81)) %>%
+   layer_dense(units = 40, activation = 'relu', kernel_initializer=initializer_random_uniform(seed = 20)) %>%
+   layer_dense(units=16, activation = 'softmax', kernel_initializer=initializer_random_uniform(seed = 200))
+
+model %>% compile(optimizer = "adam",
+   loss = "sparse_categorical_crossentropy", metrics = c("accuracy"))
+
+history <- model %>% fit(
+    x[train,] , y[train], epochs = 39,
+    batch_size = 200, validation_data = list(x[-train,], y[-train])
+    )
+toc()
+```
+
+#### 1 Layer, 81 nodes
+
+```{r}
+tic()
+set.seed(20)
+set_random_seed(20)
+
+model <- keras_model_sequential() %>%
+   layer_flatten(input_shape = c(81)) %>%
+   layer_dense(units = 81, activation = 'relu', kernel_initializer=initializer_random_uniform(seed = 20)) %>%
+   layer_dense(units=16, activation = 'softmax', kernel_initializer=initializer_random_uniform(seed = 20))
+
+model %>% compile(optimizer = "adam",
+   loss = "sparse_categorical_crossentropy", metrics = c("accuracy"))
+
+history <- model %>% fit(
+    x[train,] , y[train], epochs = 26,
+    batch_size = 200, validation_data = list(x[-train,], y[-train])
+    )
+toc()
+```
+
+#### 1 Layer, 162 nodes
+
+```{r}
+tic()
+set.seed(20)
+set_random_seed(20)
+
+model <- keras_model_sequential() %>%
+   layer_flatten(input_shape = c(81)) %>%
+   layer_dense(units = 162, activation = 'relu', kernel_initializer=initializer_random_uniform(seed = 20)) %>%
+   layer_dense(units=16, activation = 'softmax', kernel_initializer=initializer_random_uniform(seed = 200))
+
+model %>% compile(optimizer = "adam",
+   loss = "sparse_categorical_crossentropy", metrics = c("accuracy"))
+
+history <- model %>% fit(
+    x[train,] , y[train], epochs = 18,
+    batch_size = 200, validation_data = list(x[-train,], y[-train])
+    )
+toc()
+```
+
+Two layers
+
+```{r}
+tic()
+set.seed(20)
+set_random_seed(20)
+
+model <- keras_model_sequential() %>%
+   layer_flatten(input_shape = c(81)) %>%
+   layer_dense(units = 162, activation = 'relu', kernel_initializer=initializer_random_uniform(seed = 20)) %>%
+   layer_dense(units = 81, activation = 'relu', kernel_initializer=initializer_random_uniform(seed = 20)) %>%
+   layer_dense(units=16, activation = 'softmax', kernel_initializer=initializer_random_uniform(seed = 200))
+
+model %>% compile(optimizer = "adam",
+   loss = "sparse_categorical_crossentropy", metrics = c("accuracy"))
+
+history <- model %>% fit(
+    x[train,] , y[train], epochs = 10,
+    batch_size = 200, validation_data = list(x[-train,], y[-train])
+    )
+toc()
+```
+
+Review Errors
+
+```{r}
+#get predictions
+pred <- model %>% predict(x[-train,], batch_size = 200)
+pred <- round(pred)
+
+#format predictions
+result <- data.frame("Koopa Troopa, Lakitu, Bowser Jr."=pred[,1], "Link, King Boo, Rosalina"=pred[,2], 
+                     "Toadette, Wendy, Isabelle"=pred[,3],
+                     "Baby Rosalina, Lemmy Koopa"=pred[,4], "Cat Peach, Inkling Girl, Villager Girl"=pred[,5],
+                     "Baby Peach, Baby Daisy"=pred[,6], "Mario, Ludwig"=pred[,7], 
+                     "Peach, Daisy, Yoshi"=pred[,8], "Tanooki Mario, Inkling Boy, Villager Boy"=pred[,9],
+                     "Bowser, Morton"=pred[,10], "Luigi, Iggy"=pred[,11], 
+                     "Metal/Gold Mario, Pink Gold Peach"=pred[,12], "Donkey Kong, Roy, Waluigi"=pred[,13],
+                     "Toad, ShyGuy, Larry"=pred[,14], "Wario, Dry Bowser"=pred[,15],
+                     "Baby Mario/Luigi, Dry Bones"=pred[,16],
+                    'predicted' = ifelse(max.col(pred[ ,1:16])==1, "Koopa Troopa, Lakitu, Bowser Jr.",
+                     ifelse(max.col(pred[ ,1:16])==2, "Link, King Boo, Rosalina",
+                     ifelse(max.col(pred[ ,1:16])==3, "Toadette, Wendy, Isabelley",
+                     ifelse(max.col(pred[ ,1:16])==4, "Baby Rosalina, Lemmy Koopa",
+                     ifelse(max.col(pred[ ,1:16])==5, "Cat Peach, Inkling Girl, Villager Girl",
+                     ifelse(max.col(pred[ ,1:16])==6, "Baby Peach, Baby Daisy",
+                     ifelse(max.col(pred[ ,1:16])==7, "Mario, Ludwig",
+                     ifelse(max.col(pred[ ,1:16])==8, "Peach, Daisy, Yoshi",
+                     ifelse(max.col(pred[ ,1:16])==9, "Tanooki Mario, Inkling Boy, Villager Boy",
+                     ifelse(max.col(pred[ ,1:16])==10, "Bowser, Morton",
+                     ifelse(max.col(pred[ ,1:16])==11, "Luigi, Iggy",
+                     ifelse(max.col(pred[ ,1:16])==12, "Metal/Gold Mario, Pink Gold Peach",
+                     ifelse(max.col(pred[ ,1:16])==13, "Donkey Kong, Roy, Waluigi",
+                     ifelse(max.col(pred[ ,1:16])==14, "Toad, ShyGuy, Larry",
+                     ifelse(max.col(pred[ ,1:16])==15, "Wario, Dry Bowser",'Baby Mario/Luigi, Dry Bones'))))))))))))))))
+```
+
+```{r}
+#format testing labels
+og_preds <- ifelse(y[-train] == 0, "Koopa Troopa, Lakitu, Bowser Jr.",
+            ifelse(y[-train] == 1, "Link, King Boo, Rosalina",
+            ifelse(y[-train] == 2, "Toadette, Wendy, Isabelley",
+            ifelse(y[-train] == 3, "Baby Rosalina, Lemmy Koopa",
+            ifelse(y[-train] == 4, "Cat Peach, Inkling Girl, Villager Girl",
+            ifelse(y[-train] == 5, "Baby Peach, Baby Daisy",
+            ifelse(y[-train] == 6, "Mario, Ludwig",
+            ifelse(y[-train] == 7, "Peach, Daisy, Yoshi",
+            ifelse(y[-train] == 8, "Tanooki Mario, Inkling Boy, Villager Boy",
+            ifelse(y[-train] == 9, "Bowser, Morton" ,
+            ifelse(y[-train] == 10, "Luigi, Iggy",
+            ifelse(y[-train] == 11, "Metal/Gold Mario, Pink Gold Peach",
+            ifelse(y[-train] == 12, "Donkey Kong, Roy, Waluigi" ,
+            ifelse(y[-train] == 13, "Toad, ShyGuy, Larry" ,
+            ifelse(y[-train]== 14, "Wario, Dry Bowser", "Baby Mario/Luigi, Dry Bones")))))))))))))))
+```
+
+```{r}
+#accuracy
+mean(result$predicted == og_preds)
+```
+
+```{r}
+#how many errors were made
+length(result$predicted != og_preds) * mean(result$predicted != og_preds)
+```
+
+```{r}
+#what were the predictions for the misclassifications
+result$predicted[result$predicted != og_preds]
+```
+```{r}
+#what were the original labels
+og_preds[og_preds != result$predicted]
+```
+
+
+
+
