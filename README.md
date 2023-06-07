@@ -1,3 +1,4 @@
 # Mario-Kart-Exploratory-Analysis
-Exploratory Data Analysis of Mario Kart vehicle and character combinations
+Mario Kart is a wildly popular video game designed by Nintendo where users customize their characters and vehicles and race around tracks. This analysis utilizes unsupervised learning techniques, specifically K-means clustering and hierarchical clustering, to identify distinct vehicle classes with shared characteristics. The results of the clustering techniques showed that vehicles are best grouped by steering and speed abilities, but there are no distinct classes of vehicles in the data. Additionally, a neural network was fit to predict the character drivers of each kart based on the features of the kart, which performed with 100% validation accuracy. The results of this analysis enhance user gameplay by providing insight into vehicle and character selection. 
+
 Data obtained from: https://data.world/databeats/mario-kart-8-deluxe-kart-stats
